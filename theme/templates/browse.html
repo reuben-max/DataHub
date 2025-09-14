@@ -1,0 +1,785 @@
+{% load static tailwind_tags %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>BeepData - Browse</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    {% tailwind_css %}
+    <style>
+        .line-clamp-2 {
+            display: -webkit-box;
+            -webkit-line-clamp: 1;
+            line-clamp: 1;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        
+        .image-grid img {
+            transition: transform 0.3s ease;
+        }
+        
+        .image-grid img:hover {
+            transform: scale(1.05);
+        }
+        
+        /* Modal Dialog Styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.8);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+        
+        .modal-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+        
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            max-width: 80vw;
+            max-height: 100vh;
+            overflow: hidden;
+            position: relative;
+            transform: scale(0.9);
+            transition: transform 0.3s ease;
+        }
+        
+        .modal-overlay.active .modal-content {
+            transform: scale(1);
+        }
+        
+        .modal-header {
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid #e5e7eb;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .modal-body {
+            padding: 1.5rem;
+            max-height: 70vh;
+            overflow-y: auto;
+        }
+        
+        .image-gallery {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1rem;
+        }
+        
+        .image-item {
+            position: relative;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+        
+        .modal-image {
+            width: 100%;
+            height: auto;
+            border-radius: 8px 8px 0 0;
+        }
+        
+        .image-label {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 0.5rem;
+            text-align: center;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+        
+        .close-button {
+            position: absolute;
+            top: 0.75rem;
+            right: 0.75rem;
+            background: rgba(0, 0, 0, 0.5);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 2.5rem;
+            height: 2.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+        
+        .close-button:hover {
+            background: rgba(0, 0, 0, 0.7);
+        }
+        
+        /* Full-size Image Overlay */
+        .fullsize-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.95);
+            z-index: 2000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+        
+        .fullsize-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+        
+        .fullsize-image-container {
+            position: relative;
+            max-width: 55vw;
+            max-height: 55vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 4rem;
+        }
+        
+        .fullsize-image {
+            max-width: 100%;
+            max-height: 100%;
+            width: auto;
+            height: auto;
+            object-fit: contain;
+            border-radius: 8px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3);
+        }
+        
+        .fullsize-close {
+            position: absolute;
+            top: -3rem;
+            right: 0;
+            background: rgba(255, 255, 255, 0.9);
+            color: #374151;
+            border: none;
+            border-radius: 50%;
+            width: 3rem;
+            height: 3rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+        
+        .fullsize-close:hover {
+            background: rgba(255, 255, 255, 1);
+        }
+        
+        .modal-image {
+            cursor: pointer;
+            transition: transform 0.2s ease;
+        }
+        
+        .modal-image:hover {
+            transform: scale(1.02);
+        }
+        
+        /* Delete Button Styles */
+        .delete-button {
+            background: #dc2626;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 0.75rem 1.5rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            margin-top: 1rem;
+            width: 100%;
+        }
+        
+        .delete-button:hover {
+            background: #b91c1c;
+            transform: translateY(-1px);
+        }
+        
+        /* Confirmation Dialog Styles */
+        .confirmation-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.8);
+            z-index: 3000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+        
+        .confirmation-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+        
+        .confirmation-dialog {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            max-width: 500px;
+            width: 90%;
+            transform: scale(0.9);
+            transition: transform 0.3s ease;
+        }
+        
+        .confirmation-overlay.active .confirmation-dialog {
+            transform: scale(1);
+        }
+        
+        .confirmation-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 1rem;
+        }
+        
+        .confirmation-message {
+            color: #6b7280;
+            margin-bottom: 1.5rem;
+            line-height: 1.5;
+        }
+        
+        .confirmation-input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 1rem;
+            margin-bottom: 1.5rem;
+            transition: border-color 0.2s ease;
+        }
+        
+        .confirmation-input:focus {
+            outline: none;
+            border-color: #3b82f6;
+        }
+        
+        .confirmation-buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: flex-end;
+        }
+        
+        .confirmation-btn {
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: none;
+        }
+        
+        .confirmation-btn-cancel {
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+        .confirmation-btn-cancel:hover {
+            background: #e5e7eb;
+        }
+        
+        .confirmation-btn-delete {
+            background: #dc2626;
+            color: white;
+        }
+        
+        .confirmation-btn-delete:hover {
+            background: #b91c1c;
+        }
+        
+        .confirmation-btn-delete:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-50 text-black font-serif leading-normal tracking-normal">
+    {% csrf_token %}
+    <div class="min-h-screen bg-gray-50">
+        <!-- Top Navigation Bar -->
+        <nav class="bg-white shadow">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between h-16">
+                    <div class="flex items-center">
+                        <button id="drawer-toggle" class="p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500">
+                            <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+                            </svg>
+                        </button>
+                        <div class="ml-4 flex-shrink-0">
+                            <h1 class="text-xl font-bold text-gray-900">DataHub</h1>
+                        </div>
+                    </div>
+                    <div class="flex items-center">
+                        <span class="text-sm text-gray-700">Welcome, {{ user.username }}!</span>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Drawer Navigation -->
+        <div id="drawer" class="fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg transform -translate-x-full transition-transform duration-300 ease-in-out">
+            <div class="flex flex-col h-full">
+                <!-- Drawer Header -->
+                <div class="flex items-center justify-between p-4 border-b border-gray-200">
+                    <h2 class="text-lg font-semibold text-gray-900">Navigation</h2>
+                    <button id="drawer-close" class="p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100">
+                        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+                
+                <!-- Navigation Links -->
+                <nav class="flex-1 px-4 py-6 space-y-2">
+                    <a href="{% url 'browse' %}" class="flex items-center px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-md">
+                        <svg class="mr-3 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        Browse
+                    </a>
+                    
+                    <a href="{% url 'upload' %}" class="flex items-center px-4 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-100 hover:text-gray-900">
+                        <svg class="mr-3 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                        </svg>
+                        Upload
+                    </a>
+                </nav>
+                
+                <!-- Logout Button -->
+                <div class="p-4 border-t border-gray-200">
+                    <a href="{% url 'logout' %}" class="flex items-center px-4 py-2 text-sm font-medium text-red-600 rounded-md hover:bg-red-50 hover:text-red-700">
+                        <svg class="mr-3 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                        </svg>
+                        Logout
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Drawer Overlay -->
+        <div id="drawer-overlay" class="fixed inset-0 z-40 bg-gray-900 bg-opacity-25 hidden"></div>
+
+        <!-- Main Content -->
+        <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+            <div class="px-4 py-6 sm:px-0">
+                <div class="mb-8">
+                    <h3 class="text-3xl font-bold text-gray-900 mb-4">Browse Images</h3>
+                    <p class="text-lg text-gray-600">Images in our current dataset</p>
+                </div>
+                
+                {% if image_sets %}
+                    <!-- Image Sets Grid -->
+                    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-6">
+                        {% for image_set in image_sets %}
+                            <div class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300 cursor-pointer image-set-card" 
+                                 data-title="{{ image_set.title|default:'Untitled Set' }}" 
+                                 data-images='{% for image in image_set.images.all %}{{ image.image_file.url }}{% if not forloop.last %},{% endif %}{% endfor %}'
+                                 data-set-id="{{ image_set.id }}">
+                                <!-- Image Grid Container -->
+                                <div class="h-45 bg-gray-100 p-2">
+                                    {% if image_set.images.count > 0 %}
+                                        <div class="grid grid-cols-3 gap-1 h-full image-grid">
+                                            {% for image in image_set.images.all %}
+                                                <div class="relative overflow-hidden rounded-md">
+                                                    <img src="{{ image.image_file.url }}" 
+                                                         alt="{{ image_set.title|default:'Image Set' }}" 
+                                                         class="w-full h-full object-cover">
+                                                </div>
+                                            {% endfor %}
+                                            <!-- Fill remaining slots if less than 3 images -->
+                                            {% for i in "123"|make_list %}
+                                                {% if forloop.counter > image_set.images.count %}
+                                                    <div class="bg-gray-200 rounded-md flex items-center justify-center">
+                                                        <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                                                        </svg>
+                                                    </div>
+                                                {% endif %}
+                                            {% endfor %}
+                                        </div>
+                                    {% else %}
+                                        <!-- Empty state when no images -->
+                                        <div class="flex items-center justify-center h-full">
+                                            <div class="text-gray-400 text-center">
+                                                <svg class="w-12 h-12 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                                                </svg>
+                                                <p class="text-sm">No images</p>
+                                            </div>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                
+                                <!-- Card Content -->
+                                <div class="p-4">
+                                    <h3 class="text-lg font-semibold text-gray-900 mb-2">
+                                        {{ image_set.title|default:"Untitled Set" }}
+                                    </h3>
+                                    {% if image_set.description %}
+                                        <p class="text-sm text-gray-600 mb-3 line-clamp-2">{{ image_set.description }}</p>
+                                    {% endif %}
+                                    <div class="flex justify-between items-center text-xs text-gray-500">
+                                        <span>{{ image_set.created_at|date:"M d, Y" }}</span>
+                                        <span>{{ image_set.images.count }} images</span>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <!-- Empty State -->
+                    <div class="border-4 border-dashed border-gray-200 rounded-lg h-96">
+                        <div class="flex items-center justify-center h-full">
+                            <div class="text-center">
+                                <svg class="w-16 h-16 mx-auto text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                                </svg>
+                                <h3 class="text-xl font-semibold text-gray-900 mb-2">No Image Sets Yet</h3>
+                                <p class="text-gray-600 mb-4">Upload your first image set to get started</p>
+                                <a href="{% url 'upload' %}" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
+                                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                                    </svg>
+                                    Upload Images
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+        </main>
+    </div>
+
+    <!-- Image Modal Dialog -->
+    <div id="imageModal" class="modal-overlay">
+        <div class="modal-content">
+            <button id="modalClose" class="close-button" aria-label="Close dialog">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+            <div class="modal-header">
+                <h3 id="modalTitle" class="text-xl font-semibold text-gray-900">Image Set</h3>
+            </div>
+            <div class="modal-body">
+                <div id="modalImages" class="image-gallery">
+                    <!-- Images will be dynamically inserted here -->
+                </div>
+                <button id="modalDeleteButton" class="delete-button" style="display: none;">
+                    Delete Image Set
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Full-size Image Overlay -->
+    <div id="fullsizeOverlay" class="fullsize-overlay">
+        <div class="fullsize-image-container">
+            <button id="fullsizeClose" class="fullsize-close" aria-label="Close full-size view">
+                ×
+            </button>
+            <img id="fullsizeImage" class="fullsize-image" alt="Full-size image">
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Dialog -->
+    <div id="deleteConfirmation" class="confirmation-overlay">
+        <div class="confirmation-dialog">
+            <h3 class="confirmation-title">Delete Image Set</h3>
+            <p class="confirmation-message">
+                This action cannot be undone. To confirm deletion, please type:
+                <br><strong id="confirmationText">Delete Image Set 1</strong>
+            </p>
+            <input type="text" id="confirmationInput" class="confirmation-input" placeholder="Type the confirmation text here...">
+            <div class="confirmation-buttons">
+                <button id="cancelDelete" class="confirmation-btn confirmation-btn-cancel">Cancel</button>
+                <button id="confirmDelete" class="confirmation-btn confirmation-btn-delete" disabled>Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript for Drawer and Modal Functionality -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Drawer functionality
+            const drawerToggle = document.getElementById('drawer-toggle');
+            const drawer = document.getElementById('drawer');
+            const drawerClose = document.getElementById('drawer-close');
+            const drawerOverlay = document.getElementById('drawer-overlay');
+
+            // Open drawer
+            drawerToggle.addEventListener('click', function() {
+                drawer.classList.remove('-translate-x-full');
+                drawerOverlay.classList.remove('hidden');
+                document.body.style.overflow = 'hidden';
+            });
+
+            // Close drawer
+            function closeDrawer() {
+                drawer.classList.add('-translate-x-full');
+                drawerOverlay.classList.add('hidden');
+                document.body.style.overflow = 'auto';
+            }
+
+            drawerClose.addEventListener('click', closeDrawer);
+            drawerOverlay.addEventListener('click', closeDrawer);
+
+            // Modal functionality
+            const imageModal = document.getElementById('imageModal');
+            const modalClose = document.getElementById('modalClose');
+            const modalTitle = document.getElementById('modalTitle');
+            const modalImages = document.getElementById('modalImages');
+            const imageSetCards = document.querySelectorAll('.image-set-card');
+            
+            // Full-size image functionality
+            const fullsizeOverlay = document.getElementById('fullsizeOverlay');
+            const fullsizeClose = document.getElementById('fullsizeClose');
+            const fullsizeImage = document.getElementById('fullsizeImage');
+            
+            // Delete confirmation functionality
+            const deleteConfirmation = document.getElementById('deleteConfirmation');
+            const confirmationText = document.getElementById('confirmationText');
+            const confirmationInput = document.getElementById('confirmationInput');
+            const cancelDelete = document.getElementById('cancelDelete');
+            const confirmDelete = document.getElementById('confirmDelete');
+            const modalDeleteButton = document.getElementById('modalDeleteButton');
+
+            // Store current image set data
+            let currentImageSetId = null;
+            let currentImageSetNumber = 1;
+
+            // Open modal
+            function openModal(title, imageUrls, setId, setNumber) {
+                modalTitle.textContent = title;
+                modalImages.innerHTML = '';
+                currentImageSetId = setId;
+                currentImageSetNumber = setNumber;
+                
+                if (imageUrls && imageUrls.length > 0) {
+                    const labels = ['Model', 'Dress', 'Output'];
+                    
+                    imageUrls.forEach(function(url, index) {
+                        // Create image item container
+                        const imageItem = document.createElement('div');
+                        imageItem.className = 'image-item';
+                        
+                        // Create image element
+                        const img = document.createElement('img');
+                        img.src = url;
+                        img.alt = title;
+                        img.className = 'modal-image';
+                        
+                        // Add click handler to open full-size image
+                        img.addEventListener('click', function() {
+                            openFullsizeImage(url, title);
+                        });
+                        
+                        // Create label element
+                        const label = document.createElement('div');
+                        label.className = 'image-label';
+                        label.textContent = labels[index] || `Image ${index + 1}`;
+                        
+                        // Append image and label to container
+                        imageItem.appendChild(img);
+                        imageItem.appendChild(label);
+                        
+                        // Append container to gallery
+                        modalImages.appendChild(imageItem);
+                    });
+                } else {
+                    modalImages.innerHTML = '<p class="text-gray-500 text-center">No images available</p>';
+                }
+                
+                // Show delete button
+                modalDeleteButton.style.display = 'block';
+                
+                imageModal.classList.add('active');
+                document.body.style.overflow = 'hidden';
+            }
+
+            // Close modal
+            function closeModal() {
+                imageModal.classList.remove('active');
+                document.body.style.overflow = 'auto';
+            }
+
+            // Open full-size image
+            function openFullsizeImage(imageUrl, imageAlt) {
+                fullsizeImage.src = imageUrl;
+                fullsizeImage.alt = imageAlt;
+                fullsizeOverlay.classList.add('active');
+            }
+
+            // Close full-size image
+            function closeFullsizeImage() {
+                fullsizeOverlay.classList.remove('active');
+            }
+
+            // Delete confirmation functions
+            function openDeleteConfirmation() {
+                const confirmationTextValue = `Delete Image Set ${currentImageSetNumber}`;
+                confirmationText.textContent = confirmationTextValue;
+                confirmationInput.value = '';
+                confirmDelete.disabled = true;
+                deleteConfirmation.classList.add('active');
+                document.body.style.overflow = 'hidden';
+            }
+
+            function closeDeleteConfirmation() {
+                deleteConfirmation.classList.remove('active');
+                document.body.style.overflow = 'auto';
+                confirmationInput.value = '';
+                confirmDelete.disabled = true;
+            }
+
+            function deleteImageSet() {
+                const confirmationTextValue = `Delete Image Set ${currentImageSetNumber}`;
+                if (confirmationInput.value === confirmationTextValue) {
+                    // Get CSRF token from cookies
+                    function getCookie(name) {
+                        let cookieValue = null;
+                        if (document.cookie && document.cookie !== '') {
+                            const cookies = document.cookie.split(';');
+                            for (let i = 0; i < cookies.length; i++) {
+                                const cookie = cookies[i].trim();
+                                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                                    break;
+                                }
+                            }
+                        }
+                        return cookieValue;
+                    }
+                    
+                    const csrftoken = getCookie('csrftoken');
+                    
+                    // Make AJAX call to delete the image set
+                    fetch(`/api/imagesets/${currentImageSetId}/`, {
+                        method: 'DELETE',
+                        headers: {
+                            'X-CSRFToken': csrftoken,
+                            'Content-Type': 'application/json',
+                        },
+                    })
+                    .then(response => {
+                        if (response.ok) {
+                            // Remove the card from the DOM
+                            const cardToDelete = document.querySelector(`[data-set-id="${currentImageSetId}"]`);
+                            if (cardToDelete) {
+                                cardToDelete.remove();
+                            }
+                            closeDeleteConfirmation();
+                            closeModal();
+                            
+                            // Show success message
+                            alert('Image set deleted successfully!');
+                        } else {
+                            // Handle error
+                            alert('Failed to delete image set. Please try again.');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert('An error occurred while deleting the image set. Please try again.');
+                    });
+                }
+            }
+
+            // Add click handlers to image set cards
+            imageSetCards.forEach(function(card, index) {
+                card.addEventListener('click', function() {
+                    const title = this.getAttribute('data-title');
+                    const imagesData = this.getAttribute('data-images');
+                    const setId = this.getAttribute('data-set-id');
+                    const imageUrls = imagesData ? imagesData.split(',') : [];
+                    openModal(title, imageUrls, setId, index + 1);
+                });
+            });
+
+            // Close modal handlers
+            modalClose.addEventListener('click', closeModal);
+            imageModal.addEventListener('click', function(event) {
+                if (event.target === imageModal) {
+                    closeModal();
+                }
+            });
+
+            // Close full-size image handlers
+            fullsizeClose.addEventListener('click', closeFullsizeImage);
+            fullsizeOverlay.addEventListener('click', function(event) {
+                if (event.target === fullsizeOverlay) {
+                    closeFullsizeImage();
+                }
+            });
+
+            // Delete button handler
+            modalDeleteButton.addEventListener('click', openDeleteConfirmation);
+
+            // Delete confirmation handlers
+            confirmationInput.addEventListener('input', function() {
+                const confirmationTextValue = `Delete Image Set ${currentImageSetNumber}`;
+                confirmDelete.disabled = this.value !== confirmationTextValue;
+            });
+
+            cancelDelete.addEventListener('click', closeDeleteConfirmation);
+            confirmDelete.addEventListener('click', deleteImageSet);
+
+            deleteConfirmation.addEventListener('click', function(event) {
+                if (event.target === deleteConfirmation) {
+                    closeDeleteConfirmation();
+                }
+            });
+
+            // Close drawer, modal, full-size image, and delete confirmation on escape key
+            document.addEventListener('keydown', function(event) {
+                if (event.key === 'Escape') {
+                    if (fullsizeOverlay.classList.contains('active')) {
+                        closeFullsizeImage();
+                    } else if (deleteConfirmation.classList.contains('active')) {
+                        closeDeleteConfirmation();
+                    } else {
+                    closeDrawer();
+                        closeModal();
+                    }
+                }
+            });
+        });
+    </script>
+</body>
+</html>
